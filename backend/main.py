@@ -56,8 +56,8 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000",
-    "http://localhost:3000"],  # In production, change this to your frontend URL
+    allow_origins=["https://anooshaqasim-phase3-chatbit-backend.hf.space",
+    "https://phase3-todo-chatbot.vercel.app"],  # In production, change this to your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

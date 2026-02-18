@@ -1,7 +1,7 @@
 import { AuthResponse } from '@/types/user';
 import { Todo, TodoCreateInput, TodoUpdateInput } from '@/types/todo';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://anooshaqasim-phase3-chatbit-backend.hf.space';
 
 interface ApiResponse<T> {
   success: boolean;
