@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "MCP Tools for AI Todo Chatbot",
+  "description": "Tool definitions for Model Context Protocol server exposing task management operations",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "add_task",
+      "description": "Creates a new task for the authenticated user. Extracts task details from natural language and stores in database.",
+      "parameter_definitions": {
+        "user_id": {
+          "type": "str",
+          "description": "The authenticated user's ID (automatically provided by backend)",
+          "required": true
+        },
+        "title": {
+          "type": "str",
+          "description": "Task title extracted from user's message (1-200 characters)",
+          "required": true
+        },
+        "description": {
+          "type": "str",
+          "description": "Optional detailed description of the task (max 1000 characters)",
+          "required": false
+        },
+        "priority": {
+          "type": "str",
+          "description": "Task priority level: 'high', 'medium', or 'low'. Default is 'medium'.",
+          "required": false,
+          "enum": ["high", "medium", "low"]
+        },
+        "due_date": {
+          "type": "str",
+          "description": "Due date in YYYY-MM-DD format. Parsed from natural language expressions like 'tomorrow', 'next Monday', 'kal'.",
+          "required": false,
+          "format": "date"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was created successfully"
+          },
+          "task": {
+            "type": "object",
+            "description": "The created task object",
+            "properties": {
+              "id": {"type": "integer"},
+              "title": {"type": "string"},
+              "description": {"type": "string"},
+              "priority": {"type": "string"},
+              "due_date": {"type": "string", "format": "date"},
+              "completed": {"type": "boolean"}
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if success is false"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "Retrieves tasks for the authenticated user, optionally filtered by completion status.",
+      "parameter_definitions": {
+        "user_id": {
+          "type": "str",
+          "description": "The authenticated user's ID (automatically provided by backend)",
+          "required": true
+        },
+        "status": {
+          "type": "str",
+          "description": "Filter tasks by status: 'all' (default), 'pending', or 'completed'",
+          "required": false,
+          "enum": ["all", "pending", "completed"],
+          "default": "all"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the query was successful"
+          },
+          "tasks": {
+            "type": "array",
+            "description": "List of tasks matching the filter",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {"type": "integer"},
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "priority": {"type": "string"},
+                "due_date": {"type": "string", "format": "date"},
+                "completed": {"type": "boolean"}
+              }
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total number of tasks returned"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if success is false"
+          }
+        }
+      }
+    },
+    {
+      "name": "complete_task",
+      "description": "Marks a task as completed for the authenticated user.",
+      "parameter_definitions": {
+        "user_id": {
+          "type": "str",
+          "description": "The authenticated user's ID (automatically provided by backend)",
+          "required": true
+        },
+        "task_id": {
+          "type": "int",
+          "description": "The ID of the task to mark as completed",
+          "required": true
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was marked as completed"
+          },
+          "message": {
+            "type": "string",
+            "description": "Confirmation message with task title"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if success is false (e.g., 'Task not found')"
+          }
+        }
+      }
+    },
+    {
+      "name": "delete_task",
+      "description": "Permanently deletes a task for the authenticated user.",
+      "parameter_definitions": {
+        "user_id": {
+          "type": "str",
+          "description": "The authenticated user's ID (automatically provided by backend)",
+          "required": true
+        },
+        "task_id": {
+          "type": "int",
+          "description": "The ID of the task to delete",
+          "required": true
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was deleted successfully"
+          },
+          "message": {
+            "type": "string",
+            "description": "Confirmation message"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if success is false (e.g., 'Task not found')"
+          }
+        }
+      }
+    },
+    {
+      "name": "update_task",
+      "description": "Updates one or more fields of an existing task for the authenticated user.",
+      "parameter_definitions": {
+        "user_id": {
+          "type": "str",
+          "description": "The authenticated user's ID (automatically provided by backend)",
+          "required": true
+        },
+        "task_id": {
+          "type": "int",
+          "description": "The ID of the task to update",
+          "required": true
+        },
+        "title": {
+          "type": "str",
+          "description": "New task title (optional, only if updating title)",
+          "required": false
+        },
+        "description": {
+          "type": "str",
+          "description": "New task description (optional, only if updating description)",
+          "required": false
+        },
+        "priority": {
+          "type": "str",
+          "description": "New priority level: 'high', 'medium', or 'low' (optional)",
+          "required": false,
+          "enum": ["high", "medium", "low"]
+        },
+        "due_date": {
+          "type": "str",
+          "description": "New due date in YYYY-MM-DD format (optional)",
+          "required": false,
+          "format": "date"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was updated successfully"
+          },
+          "task": {
+            "type": "object",
+            "description": "The updated task object",
+            "properties": {
+              "id": {"type": "integer"},
+              "title": {"type": "string"},
+              "description": {"type": "string"},
+              "priority": {"type": "string"},
+              "due_date": {"type": "string", "format": "date"},
+              "completed": {"type": "boolean"}
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if success is false (e.g., 'Task not found')"
+          }
+        }
+      }
+    }
+  ],
+  "notes": {
+    "authentication": "All tools require authenticated user_id. Backend automatically injects user_id from JWT token.",
+    "stateless": "All tools are stateless. Each invocation creates a fresh database session.",
+    "error_handling": "Tools return success: false with error message instead of throwing exceptions.",
+    "user_isolation": "All operations are scoped to the authenticated user. Users cannot access other users' tasks.",
+    "date_format": "All dates use ISO 8601 format (YYYY-MM-DD). Natural language dates are parsed by AI service before calling tools."
+  }
+}

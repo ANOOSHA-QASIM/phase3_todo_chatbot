@@ -1,0 +1,369 @@
+openapi: 3.0.3
+info:
+  title: AI Todo Chatbot API
+  description: Chat endpoint for multilingual AI-powered todo management
+  version: 1.0.0
+  contact:
+    name: Phase III AI Chatbot
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+paths:
+  /api/chat:
+    post:
+      summary: Send message to AI chatbot
+      description: |
+        Processes user message through Cohere AI, executes MCP tools if needed,
+        and returns AI response. Supports English, Urdu, and Roman Urdu.
+
+        Workflow:
+        1. Fetch conversation history from database
+        2. Send message + history to Cohere AI
+        3. Execute MCP tools if AI requests them
+        4. Generate final response with tool results
+        5. Save conversation to database
+        6. Return response to user
+      operationId: sendChatMessage
+      tags:
+        - Chat
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              addTask:
+                summary: Add task in English
+                value:
+                  message: "Add a task to buy groceries tomorrow with high priority"
+                  conversation_id: null
+              listTasks:
+                summary: List tasks in Roman Urdu
+                value:
+                  message: "mere tasks dikhao"
+                  conversation_id: 123
+              completeTask:
+                summary: Complete task
+                value:
+                  message: "mark task 5 as done"
+                  conversation_id: 123
+      responses:
+        '200':
+          description: Successful response with AI message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              examples:
+                taskAdded:
+                  summary: Task added successfully
+                  value:
+                    message: "Got it! Task 'Buy groceries' added with high priority for 2026-02-14 ✅"
+                    conversation_id: 123
+                    tool_results:
+                      - tool: "add_task"
+                        success: true
+                        task_id: 42
+                tasksListed:
+                  summary: Tasks listed
+                  value:
+                    message: "Here are your pending tasks:\n1. Buy groceries (high priority, due 2026-02-14)\n2. Call mom\n3. Finish report (due 2026-02-21)"
+                    conversation_id: 123
+                    tool_results:
+                      - tool: "list_tasks"
+                        success: true
+                        count: 3
+        '401':
+          description: Unauthorized - Invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Unauthorized"
+                message: "Invalid or missing authentication token"
+        '400':
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Bad Request"
+                message: "Message cannot be empty"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Internal Server Error"
+                message: "Failed to process message"
+
+  /api/conversations:
+    get:
+      summary: Get user's conversation history
+      description: Retrieves list of conversations for authenticated user, ordered by most recent
+      operationId: getConversations
+      tags:
+        - Conversations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of conversations to return
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConversationSummary'
+              example:
+                conversations:
+                  - id: 123
+                    created_at: "2026-02-13T10:30:00Z"
+                    updated_at: "2026-02-13T14:45:00Z"
+                    message_count: 12
+                    preview: "Add a task to buy groceries..."
+                  - id: 122
+                    created_at: "2026-02-12T09:00:00Z"
+                    updated_at: "2026-02-12T09:15:00Z"
+                    message_count: 5
+                    preview: "Show my pending tasks"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/conversations/{conversation_id}/messages:
+    get:
+      summary: Get messages for a conversation
+      description: Retrieves messages for a specific conversation, ordered chronologically
+      operationId: getConversationMessages
+      tags:
+        - Conversations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          description: Conversation ID
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum number of messages to return
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+              example:
+                messages:
+                  - id: 1
+                    role: "user"
+                    content: "Add a task to buy groceries"
+                    created_at: "2026-02-13T10:30:00Z"
+                  - id: 2
+                    role: "assistant"
+                    content: "Got it! Task added ✅"
+                    created_at: "2026-02-13T10:30:02Z"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Better Auth authentication
+
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: User's message in any supported language (English, Urdu, Roman Urdu)
+          minLength: 1
+          maxLength: 2000
+          example: "Add a task to buy groceries tomorrow with high priority"
+        conversation_id:
+          type: integer
+          nullable: true
+          description: |
+            ID of existing conversation to continue. If null, creates new conversation.
+            Frontend should track conversation_id for multi-turn conversations.
+          example: 123
+
+    ChatResponse:
+      type: object
+      required:
+        - message
+        - conversation_id
+      properties:
+        message:
+          type: string
+          description: AI assistant's response in the same language as user input
+          example: "Got it! Task 'Buy groceries' added with high priority for 2026-02-14 ✅"
+        conversation_id:
+          type: integer
+          description: ID of the conversation (new or existing)
+          example: 123
+        tool_results:
+          type: array
+          nullable: true
+          description: Optional array of tool execution results (for debugging/logging)
+          items:
+            type: object
+            properties:
+              tool:
+                type: string
+                description: Name of the tool that was executed
+                example: "add_task"
+              success:
+                type: boolean
+                description: Whether tool execution succeeded
+                example: true
+              task_id:
+                type: integer
+                nullable: true
+                description: ID of created/modified task (if applicable)
+                example: 42
+              count:
+                type: integer
+                nullable: true
+                description: Number of tasks returned (for list_tasks)
+                example: 3
+
+    ConversationSummary:
+      type: object
+      required:
+        - id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          description: Conversation ID
+          example: 123
+        created_at:
+          type: string
+          format: date-time
+          description: When conversation was created
+          example: "2026-02-13T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: When last message was sent
+          example: "2026-02-13T14:45:00Z"
+        message_count:
+          type: integer
+          description: Total number of messages in conversation
+          example: 12
+        preview:
+          type: string
+          description: Preview of first user message (truncated to 50 chars)
+          example: "Add a task to buy groceries..."
+
+    Message:
+      type: object
+      required:
+        - id
+        - role
+        - content
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Message ID
+          example: 1
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Who sent the message
+          example: "user"
+        content:
+          type: string
+          description: Message content
+          example: "Add a task to buy groceries"
+        created_at:
+          type: string
+          format: date-time
+          description: When message was created
+          example: "2026-02-13T10:30:00Z"
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "Bad Request"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Message cannot be empty"
+        details:
+          type: object
+          nullable: true
+          description: Additional error details (optional)
+
+tags:
+  - name: Chat
+    description: AI chatbot conversation endpoints
+  - name: Conversations
+    description: Conversation history management
